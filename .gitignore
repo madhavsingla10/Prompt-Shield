@@ -39,3 +39,8 @@ wheels/
 *.swo
 .DS_Store
 Thumbs.db
+
+# Vector store & local database data
+backend/data/
+*.db
+

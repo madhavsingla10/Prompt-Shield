@@ -1,9 +1,10 @@
 import os
+from pathlib import Path
 from typing import List, Dict, Any
 from dotenv import load_dotenv
 
-# Load environment variables
-load_dotenv()
+# Load environment variables with override=True following llm_engineering conventions
+load_dotenv(override=True)
 
 class Settings:
     # Service Information
@@ -11,7 +12,7 @@ class Settings:
     VERSION: str = "0.1.0"
     API_PREFIX: str = "/api"
 
-    # API Keys & URLs
+    # API Keys & Endpoints
     FEATHERLESS_API_KEY: str = os.getenv("FEATHERLESS_API_KEY", "")
     FEATHERLESS_BASE_URL: str = os.getenv("FEATHERLESS_BASE_URL", "https://api.featherless.ai/v1")
 
@@ -20,13 +21,22 @@ class Settings:
     OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
     OPENAI_BASE_URL: str = os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1")
 
-    # Default Pipeline Roles
+    # Default Pipeline Model Roles
     DEFAULT_ATTACKER_MODEL: str = os.getenv("DEFAULT_ATTACKER_MODEL", "gemini-2.5-flash")
     DEFAULT_EVALUATOR_MODEL: str = os.getenv("DEFAULT_EVALUATOR_MODEL", "gemini-2.5-flash")
     DEFAULT_COMPILER_MODEL: str = os.getenv("DEFAULT_COMPILER_MODEL", "gemini-2.5-flash")
     DEFAULT_TARGET_MODEL: str = os.getenv("DEFAULT_TARGET_MODEL", "meta-llama/Meta-Llama-3.1-8B-Instruct")
 
-    # Available Model Registry (for target testing and node execution)
+    # Vector Database / RAG Configuration
+    VECTOR_DB_DIR: str = os.getenv("VECTOR_DB_DIR", str(Path(__file__).parent / "data" / "chroma_db"))
+    DEFAULT_EMBEDDING_MODEL: str = "text-embedding-3-small"
+
+    # Retry and Resilience Parameters
+    RETRY_MIN_SECONDS: int = int(os.getenv("RETRY_MIN_SECONDS", "2"))
+    RETRY_MAX_SECONDS: int = int(os.getenv("RETRY_MAX_SECONDS", "30"))
+    MAX_RETRY_ATTEMPTS: int = int(os.getenv("MAX_RETRY_ATTEMPTS", "3"))
+
+    # Available Model Registry (for target testing and agent execution)
     SUPPORTED_TARGET_MODELS: List[Dict[str, Any]] = [
         {
             "id": "meta-llama/Meta-Llama-3.1-8B-Instruct",

@@ -1,6 +1,6 @@
-# PromptShield Arena: Planned Repository Structure
+# PromptShield Arena: Repository Structure
 
-This document outlines the planned directory layout and file structure for the **PromptShield Arena** workspace. It is structured into a Python FastAPI backend and a Next.js/Streamlit frontend.
+This document outlines the directory layout and architecture for the **PromptShield Arena** workspace, built following the **`llm_engineering`** multi-agent framework patterns.
 
 ---
 
@@ -9,67 +9,65 @@ This document outlines the planned directory layout and file structure for the *
 ```text
 PromptShield Arena/
 ├── backend/
-│   ├── requirements.txt            # Python dependencies (FastAPI, Pydantic, etc.)
+│   ├── requirements.txt            # Python dependencies (FastAPI, tenacity, chromadb, etc.)
 │   ├── .env.example                # Template for environment variables (API keys)
-│   ├── main.py                     # FastAPI server and pipeline orchestrator
-│   ├── config.py                   # App configurations (LLM models, API configurations)
-│   ├── schemas.py                  # Pydantic schemas for request/response serialization
-│   └── nodes/
-│       ├── __init__.py
-│       ├── attack_generator.py     # Node 1: Generates tricky queries based on rules, tools, & RAG
-│       ├── sandbox_runner.py       # Node 2: Runs queries asynchronously with mock tools
-│       ├── evaluator.py            # Node 3: Inspects answers for rule breaches or data leaks
-│       ├── guardrail_compiler.py   # Node 4: Compiles a hardened, secure system prompt
-│       └── verifier.py             # Node 5: Re-tests the hardened prompt & computes score change
+│   ├── main.py                     # FastAPI server and multi-agent SSE orchestrator
+│   ├── config.py                   # Typed configuration with load_dotenv(override=True)
+│   ├── schemas.py                  # Pydantic v2 schemas and validation models
+│   ├── agents/                     # Multi-Agent Framework (llm_engineering pattern)
+│   │   ├── __init__.py             # Agent registry exports
+│   │   ├── base_agent.py           # BaseAgent with ANSI color logging & telemetry
+│   │   ├── attacker_agent.py       # Red-Teaming & adversarial attack generator
+│   │   ├── sandbox_agent.py        # Multi-model sandbox runner with concurrency & tool simulation
+│   │   ├── evaluator_agent.py      # LLM-as-a-Judge security & leakage evaluator
+│   │   ├── compiler_agent.py       # Guardrail compiler & XML prompt hardening architect
+│   │   └── verifier_agent.py       # Verification diff & regression evaluation agent
+│   ├── rag/                        # RAG & Vector Knowledge Base
+│   │   ├── __init__.py             # RAG exports
+│   │   ├── vector_store.py         # ChromaDB vector store with in-memory fallback
+│   │   └── synthetic_rag.py        # Synthetic knowledge base & honeypot generator
+│   ├── services/                   # Core Infrastructure Services
+│   │   ├── __init__.py             # Service exports
+│   │   ├── llm_service.py          # Unified LLM service with Tenacity exponential retries
+│   │   └── diff_service.py         # Prompt diff generator & XML tag inspector
+│   └── nodes/                      # Compatibility layer mapping to backend/agents/ & rag/
+│       └── __init__.py             # Node aliases (generate_attacks, run_sandbox_tests, etc.)
 │
-├── frontend/                       # Option A: Premium Next.js Frontend
+├── frontend/                       # Next.js Frontend Dashboard
 │   ├── package.json                # npm dependencies (Tailwind, Lucide, Framer Motion)
 │   ├── tailwind.config.js          # Custom theme styles (glassmorphism/dark mode)
-│   ├── src/
-│   │   ├── app/
-│   │   │   ├── layout.tsx          # Global template & font configurations
-│   │   │   └── page.tsx            # Main interactive security playground dashboard
-│   │   └── components/
-│   │       ├── PromptForm.tsx      # Rules, Prompts, Tools & RAG inputs
-│   │       ├── LiveConsole.tsx     # Terminal-style output for active simulations
-│   │       └── DiffViewer.tsx      # Side-by-side comparison of old vs. new prompts
+│   └── src/
+│       ├── app/
+│       │   ├── layout.tsx          # Global template & font configurations
+│       │   └── page.tsx            # Interactive security playground dashboard
+│       └── components/
+│           ├── PromptForm.tsx      # Rules, Prompts, Tools & RAG inputs
+│           ├── LiveConsole.tsx     # Real-time SSE streaming agent console
+│           └── DiffViewer.tsx      # Side-by-side comparison of original vs. hardened prompt
 │
 └── README.md                       # Project setup, overview, and usage instructions
 ```
 
 ---
 
-## Detailed File Responsibilities
+## Detailed Backend Responsibilities
 
-### 1. Backend Layer (`backend/`)
+### 1. Multi-Agent Framework (`backend/agents/`)
+*   **`base_agent.py`**: Abstract `BaseAgent` featuring ANSI color-coded console logs (`\033[...]`) matching `llm_engineering/week8`, timestamps, and lifecycle logging.
+*   **`attacker_agent.py`**: Generates adversarial test cases across 5 attack vectors (*direct_override*, *roleplay_hijack*, *delimiter_injection*, *indirect_evasion*, *data_leakage*).
+*   **`sandbox_agent.py`**: Executes test suites across target models in parallel, binds function-calling schemas, and simulates mock tools.
+*   **`evaluator_agent.py`**: Objective LLM-as-a-Judge evaluating rule violations, instruction leakage, and refusal quality (1–5 scale).
+*   **`compiler_agent.py`**: Synthesizes XML boundary encapsulation (`<system_instructions>`, `<immutable_security_boundaries>`), precedence rules, and refusal anchors.
+*   **`verifier_agent.py`**: Runs regression testing against hardened prompts, calculating safety score deltas.
 
-*   **`main.py`**
-    *   Hosts the FastAPI web server.
-    *   Exposes endpoints such as `/api/audit` (runs the whole Node 1-5 pipeline) and `/api/health`.
-*   **`schemas.py`**
-    *   Defines structured data models, including:
-        *   `ToolDefinition`: Name, description, and parameter specifications.
-        *   `RAGContext`: Synthetic database descriptions and sample structures.
-        *   `AuditRequest`: The user's system prompt, rules, selected target LLMs, tools, and RAG metadata.
-        *   `AuditResponse`: Detailed logs, scores (initial vs. post-hardening), and the final compiled prompt.
-*   **`nodes/attack_generator.py`**
-    *   Constructs prompt engineering templates to command a security LLM to think like an adversary.
-    *   Generates a JSON list of specialized injection payloads tailored to trigger the user's defined mock tools or leak simulated RAG tables.
-*   **`nodes/sandbox_runner.py`**
-    *   Coordinates parallel async HTTP requests using `httpx` to targets (Gemini, Llama 3, etc.).
-    *   Mocks function-calling formats by injecting tool descriptions into the LLM target's API schema.
-*   **`nodes/evaluator.py`**
-    *   Queries a high-intelligence evaluator LLM to judge if the agent responses violated boundaries (e.g., agreed to generate an unauthorized coupon or printed secret database fields).
-*   **`nodes/guardrail_compiler.py`**
-    *   Assembles the hardened system prompt by programmatically inserting defensive anchors, refuse protocols, and XML tags around weak parameters.
-*   **`nodes/verifier.py`**
-    *   Sends the newly hardened system prompt back to `sandbox_runner` to repeat the exact test suite, ensuring the vulnerabilities are verified as resolved.
+### 2. RAG & Vector Knowledge Base (`backend/rag/`)
+*   **`vector_store.py`**: ChromaDB vector indexer with in-memory fallback for semantic search and poisoned document detection.
+*   **`synthetic_rag.py`**: Generates realistic domain documentation with embedded confidential honeypots and indirect injection payloads.
 
----
+### 3. Services Layer (`backend/services/`)
+*   **`llm_service.py`**: Unified asynchronous LLM client with `tenacity` exponential backoff retries (`wait_exponential`, `stop_after_attempt`).
+*   **`diff_service.py`**: Generates unified diffs and inspects XML security tags.
 
-## 2. Frontend Layer (`frontend/`)
+### 4. Compatibility Layer (`backend/nodes/`)
+*   Provides backward-compatible function aliases (`generate_attacks`, `run_sandbox_tests`, `evaluate_responses`, `compile_guardrails`, `run_verification`) delegating to the agent framework.
 
-We recommend using **Next.js** with React to build a premium, wow-factor dashboard:
-*   **Prompt Input Section:** Clean textareas for the System Prompt, coupled with dynamic forms where users can add/remove Tools (defining parameters) and RAG profiles.
-*   **Real-Time Log Stream:** Interactive step-by-step terminal outputs showing Node 1 to Node 5 executing live.
-*   **Before/After Diff Panel:** A visual side-by-side comparison highlighting exact text insertions made by the Guardrail Compiler.
